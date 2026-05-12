@@ -1,0 +1,47 @@
+# Runs only on merges to main.
+# Hits real APIs — costs money. This is the quality gate.
+# Fails the workflow if faithfulness drops below 0.80.
+name: Eval
+
+on:
+  push:
+    branches: ["main"]
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Start Qdrant
+        run: |
+          docker run -d -p 6333:6333 qdrant/qdrant
+          sleep 5
+
+      - name: Run ingestion on test papers
+        run: python scripts/ingest.py --mode reindex
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          QDRANT_URL: "http://localhost:6333"
+
+      - name: Run DeepEval (quality gate)
+        run: pytest evals/run_deepeval.py -v
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          QDRANT_URL: "http://localhost:6333"
+
+      - name: Run RAGAS (metrics report)
+        run: python evals/run_ragas.py
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          QDRANT_URL: "http://localhost:6333"
