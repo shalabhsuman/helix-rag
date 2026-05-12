@@ -57,6 +57,68 @@ Question -> embed -> hybrid search -> rerank -> GPT-4o -> answer + citations
 
 Documents are embedded once and stored. Querying is fast and cheap after the index is built.
 
+### What actually happens when you ask a question
+
+```
+1. Your question is converted into a vector (1536 numbers) via OpenAI embeddings.
+   This is not a generative LLM call — it is a mathematical transformation.
+
+2. Qdrant finds the 50 child chunks whose vectors are closest to your question vector.
+   Pure cosine similarity math. No LLM involved.
+
+3. BM25 searches all 821 chunk texts for keyword matches.
+   Also pure math. No LLM.
+
+4. RRF merges both ranked lists into a single top-20 list.
+   Chunks appearing high in both lists score highest.
+
+5. A cross-encoder reranker scores each (question, chunk) pair jointly -> top 5.
+   This runs locally. No API call.
+
+6. The parent_text of those 5 chunks (each ~1200 tokens of real paper text)
+   is sent to GPT-4o with a grounding instruction.
+   THIS is where the LLM runs.
+
+7. GPT-4o reads the paper text and writes a structured answer in its own words.
+   It is not copying from the paper. It is synthesizing.
+   But it is only allowed to use what was retrieved — not its training knowledge.
+```
+
+The answer you get is GPT-4o's phrasing, but the facts come entirely from your papers.
+
+| Step | Uses LLM? | What runs |
+|---|---|---|
+| Embed question | OpenAI, but not generative | `text-embedding-3-small` |
+| Vector search | No — math | Cosine similarity in Qdrant |
+| BM25 search | No — math | Term frequency scoring |
+| Reranker | No — local model | `ms-marco-MiniLM-L-6-v2` on your machine |
+| Generate answer | Yes | GPT-4o |
+
+### Pipeline at a glance
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    INDEXING (build time)                 │
+│                                                          │
+│  PDFs  →  PyMuPDF  →  Chunker  →  OpenAI  →  Qdrant    │
+│           (parse)   (split 1:4)  (embed)   (store)      │
+└─────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────┐
+│                   QUERYING (per request)                 │
+│                                                          │
+│  Question                                                │
+│     ↓ OpenAI embed                                       │
+│  Dense search (Qdrant) ──┐                               │
+│                          ├→  RRF fusion  →  Reranker     │
+│  BM25 keyword search  ───┘   (top 20)       (top 5)     │
+│                                                ↓         │
+│                                  GPT-4o + grounding      │
+│                                                ↓         │
+│                                    Answer + sources      │
+└─────────────────────────────────────────────────────────┘
+```
+
 ---
 
 ## Project structure
@@ -276,17 +338,17 @@ There are 821 rows in this project. One row per child chunk. Chunks from the sam
 
 ## Build phases
 
-The pipeline is built in phases. Each phase is independently testable.
+The pipeline is split into independent phases. Each one can be built, tested, and understood on its own before the next begins.
 
-| Phase | What it builds | Status |
+| Phase | What it builds | Why it exists |
 |---|---|---|
-| 1 | PDF parsing and parent-child chunking | Done |
-| 2 | Embedding and Qdrant vector storage | Done |
-| 3 | Hybrid search and cross-encoder reranking | In progress |
-| 4 | GPT-4o generation with grounding constraint | Pending |
-| 5 | RAGAS and DeepEval evaluation pipeline | Pending |
-| 6 | OpenAI Agents SDK wrapper | Pending |
-| 7 | Gradio chat UI | Pending |
+| 1 | PDF parsing and parent-child chunking | Turns raw PDFs into structured, searchable pieces |
+| 2 | Embedding and Qdrant vector storage | Converts text into vectors and stores them so they can be searched |
+| 3 | Hybrid search and cross-encoder reranking | Finds the most relevant chunks for any question |
+| 4 | GPT-4o generation with grounding constraint | Turns retrieved chunks into a coherent, cited answer |
+| 5 | RAGAS and DeepEval evaluation pipeline | Measures quality with real metrics so you can trust the system |
+| 6 | OpenAI Agents SDK wrapper | Exposes the pipeline as a tool an agent can call alongside other tools |
+| 7 | Gradio chat UI | Puts a conversational interface in front of the pipeline |
 
 ---
 
@@ -417,25 +479,28 @@ pytest tests/ -v
 | `test_embedding.py` | 4 | Embedder returns one vector per text, correct dimensions, batches large inputs correctly |
 | `test_vectorstore.py` | 4 | Qdrant upsert is called with correct points, payload contains parent text, search and delete work |
 | `test_retrieval.py` | 7 | BM25 respects top_k, RRF boosts chunks appearing in both lists, RRF formula is mathematically correct, reranker sorts by score |
+| `test_generation.py` | 8 | Grounding constraint is applied, sources are deduplicated correctly, fallback returned when no chunks found, parent_text is used not child_text |
 
 ### When tests run
 
 | Trigger | What runs | Cost |
 |---|---|---|
-| Every push to any branch | All 27 unit tests | Free (no API calls) |
-| Every pull request | All 27 unit tests | Free |
-| Merge to main | All 27 unit tests + full eval suite | Small API cost |
+| Every push to any branch | All 35 unit tests | Free (no API calls) |
+| Every pull request | All 35 unit tests | Free |
+| Merge to main | All 35 unit tests + full eval suite | Small API cost |
 | Manual trigger (eval workflow) | Full RAGAS + DeepEval against golden dataset | API cost |
 
 ### The three types of checks in CI
 
-These are different things. Only pytest requires you to write code.
+These tools serve different purposes and catch different categories of problem.
 
-| Tool | You write it? | What it does | How to run locally |
-|---|---|---|---|
-| `pytest` | Yes. You write test functions. | Runs your code and checks the results are correct | `pytest tests/ -v` |
-| `ruff` | No. Just configured in `pyproject.toml`. | Checks code style: unused imports, lines too long, formatting | `ruff check src/ tests/` |
-| `mypy` | No. Just configured in `pyproject.toml`. | Checks type hints: catches passing wrong types to functions | `mypy src/` |
+| Tool | What it catches | How to run locally |
+|---|---|---|
+| `pytest` | Logic bugs — code that runs but produces wrong results | `pytest tests/ -v` |
+| `ruff` | Style problems — unused imports, lines too long, inconsistent formatting | `ruff check src/ tests/` |
+| `mypy` | Type mismatches — passing a string where a list is expected, calling a method that does not exist | `mypy src/` |
+
+pytest requires writing test functions. ruff and mypy only need to be configured once in `pyproject.toml` — they inspect the code automatically from that point on.
 
 If any of the three fails, the CI run is marked as failed. To run all three locally before pushing:
 
