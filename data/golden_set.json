@@ -1,0 +1,52 @@
+[
+  {
+    "user_input": "What percentage of human tumor samples contain extrachromosomal DNA (ecDNA)?",
+    "reference": "Approximately 17.1% of human tumor samples contain ecDNA, based on analysis across multiple cancer types.",
+    "reference_contexts": []
+  },
+  {
+    "user_input": "How does ecDNA contribute to oncogene amplification in cancer?",
+    "reference": "ecDNA enables oncogene amplification by existing outside chromosomes, allowing genes to be present in very high copy numbers. Because ecDNA lacks centromeres, it segregates unequally during cell division, leading to rapid increases in oncogene copy number. This amplification drives tumor growth and is associated with poor prognosis.",
+    "reference_contexts": []
+  },
+  {
+    "user_input": "Why does ecDNA lead to faster drug resistance compared to chromosomal amplifications?",
+    "reference": "ecDNA accelerates drug resistance because its copy number can change rapidly within a tumor. Under drug pressure, cells with higher ecDNA copy number carrying resistance genes are selected. Because ecDNA segregates without centromeres, copy number can increase or decrease much faster than chromosomal amplifications, enabling tumors to adapt quickly to treatment.",
+    "reference_contexts": []
+  },
+  {
+    "user_input": "How does ecDNA inheritance differ from chromosomal DNA inheritance during cell division?",
+    "reference": "Unlike chromosomal DNA, ecDNA does not attach to the mitotic spindle because it lacks centromeres. This causes ecDNA to segregate unequally between daughter cells, resulting in high cell-to-cell variability in ecDNA copy number. This non-Mendelian inheritance creates intratumoral heterogeneity in oncogene dosage.",
+    "reference_contexts": []
+  },
+  {
+    "user_input": "What is the relationship between ecDNA and tumor heterogeneity?",
+    "reference": "ecDNA drives intratumoral heterogeneity because its unequal segregation during cell division creates daughter cells with different oncogene copy numbers. This population diversity allows tumors to rapidly adapt to selective pressures such as drug treatment, with subclones carrying favorable ecDNA configurations expanding preferentially.",
+    "reference_contexts": []
+  },
+  {
+    "user_input": "In which cancer types is ecDNA most commonly found?",
+    "reference": "ecDNA is found across many cancer types but is particularly prevalent in glioblastoma, lung cancer, breast cancer, esophageal cancer, and urothelial cancer. Studies have shown ecDNA presence in 17.1% of tumors overall, with higher rates in specific aggressive subtypes.",
+    "reference_contexts": []
+  },
+  {
+    "user_input": "How was ecDNA mapped and characterized in the Kim 2024 study?",
+    "reference": "Kim et al. 2024 used computational methods including AmpliconArchitect and long-read sequencing to map ecDNA amplifications across large cancer cohorts. They characterized the structure of ecDNA elements, identified which oncogenes were amplified, and linked ecDNA amplification patterns to clinical outcomes.",
+    "reference_contexts": []
+  },
+  {
+    "user_input": "What role does ecDNA play in Barrett's oesophagus progression to cancer?",
+    "reference": "Luebeck et al. 2023 showed that ecDNA formation is an early event in Barrett's oesophagus progression. ecDNA carrying oncogenes such as ERBB2 can drive the transition from pre-malignant Barrett's tissue to esophageal adenocarcinoma by amplifying driver oncogenes early in the disease course.",
+    "reference_contexts": []
+  },
+  {
+    "user_input": "What is the evolutionary advantage that ecDNA provides to tumor cells?",
+    "reference": "ecDNA provides an evolutionary advantage by enabling rapid, reversible changes in oncogene copy number. Tumor cells can increase ecDNA copy number under selective pressure (such as drug treatment) and decrease it when the pressure is removed, avoiding the fitness costs of carrying large chromosomal amplifications. This flexibility makes ecDNA-bearing tumors highly adaptable.",
+    "reference_contexts": []
+  },
+  {
+    "user_input": "What did Nguyen et al. 2024 find about ecDNA in urothelial cancer?",
+    "reference": "Nguyen et al. 2024 characterized ecDNA in urothelial cancer, identifying specific oncogenes amplified on ecDNA elements in bladder and upper urinary tract tumors. They linked ecDNA amplification to aggressive disease phenotypes and showed that ecDNA-positive tumors had distinct molecular profiles compared to tumors with chromosomal amplifications.",
+    "reference_contexts": []
+  }
+]

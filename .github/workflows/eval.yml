@@ -1,10 +1,9 @@
-# Evaluation workflow — runs full RAGAS + DeepEval against the golden dataset.
-# Disabled until Phase 5 (evaluation pipeline) is complete.
-# To run manually: Actions tab -> Eval -> Run workflow
 name: Eval
 
 on:
-  workflow_dispatch:  # manual trigger only for now
+  workflow_dispatch:  # manual trigger
+  push:
+    branches: [main]  # also runs on every merge to main
 
 jobs:
   evaluate:
@@ -27,20 +26,20 @@ jobs:
           docker run -d -p 6333:6333 qdrant/qdrant
           sleep 5
 
-      - name: Run ingestion on test papers
+      - name: Reindex papers
         run: python scripts/ingest.py --mode reindex
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           QDRANT_URL: "http://localhost:6333"
 
-      - name: Run DeepEval (quality gate)
-        run: pytest evals/run_deepeval.py -v
+      - name: Run RAGAS evaluation
+        run: python scripts/run_eval.py
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           QDRANT_URL: "http://localhost:6333"
 
-      - name: Run RAGAS (metrics report)
-        run: python evals/run_ragas.py
+      - name: Assert quality thresholds
+        run: pytest tests/test_eval_thresholds.py -v
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           QDRANT_URL: "http://localhost:6333"
