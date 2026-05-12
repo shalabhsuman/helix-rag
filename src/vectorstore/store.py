@@ -73,13 +73,13 @@ def upsert_chunks(
 def search(query_vector: list[float], top_k: int = 20) -> list[dict[str, Any]]:
     """Return the top_k most similar chunks for a query vector."""
     client = get_client()
-    results = client.search(
+    response = client.query_points(
         collection_name=COLLECTION_NAME,
-        query_vector=query_vector,
+        query=query_vector,
         limit=top_k,
         with_payload=True,
     )
-    return [{"score": r.score, **r.payload} for r in results]
+    return [{"score": r.score, **r.payload} for r in response.points]
 
 
 def delete_by_doc_id(doc_id: str) -> None:

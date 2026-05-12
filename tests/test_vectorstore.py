@@ -63,7 +63,7 @@ def test_search_returns_list_of_dicts(mock_get_client):
     mock_result = MagicMock()
     mock_result.score = 0.9
     mock_result.payload = {"doc_id": "doc", "child_text": "some text", "parent_text": "full section"}
-    mock_get_client.return_value.search.return_value = [mock_result]
+    mock_get_client.return_value.query_points.return_value.points = [mock_result]
 
     results = search([0.1] * 1536, top_k=5)
 
