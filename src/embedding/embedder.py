@@ -24,7 +24,9 @@ def embed_texts(texts: list[str]) -> list[list[float]]:
 
     for i in range(0, len(texts), BATCH_SIZE):
         batch = texts[i : i + BATCH_SIZE]
-        logger.info(f"Embedding batch {i // BATCH_SIZE + 1} of {-(-len(texts) // BATCH_SIZE)} ({len(batch)} texts)")
+        batch_num = i // BATCH_SIZE + 1
+        total_batches = -(-len(texts) // BATCH_SIZE)
+        logger.info(f"Embedding batch {batch_num} of {total_batches} ({len(batch)} texts)")
 
         try:
             response = client.embeddings.create(

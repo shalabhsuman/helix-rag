@@ -6,7 +6,7 @@ from rank_bm25 import BM25Okapi
 from sentence_transformers import CrossEncoder
 
 from src.embedding.embedder import embed_query
-from src.vectorstore.store import COLLECTION_NAME, QDRANT_URL, get_client, search
+from src.vectorstore.store import COLLECTION_NAME, get_client, search
 
 RERANKER_MODEL = os.getenv("RERANKER_MODEL", "cross-encoder/ms-marco-MiniLM-L-6-v2")
 

@@ -1,11 +1,10 @@
-# Runs only on merges to main.
-# Hits real APIs — costs money. This is the quality gate.
-# Fails the workflow if faithfulness drops below 0.80.
+# Evaluation workflow — runs full RAGAS + DeepEval against the golden dataset.
+# Disabled until Phase 5 (evaluation pipeline) is complete.
+# To run manually: Actions tab -> Eval -> Run workflow
 name: Eval
 
 on:
-  push:
-    branches: ["main"]
+  workflow_dispatch:  # manual trigger only for now
 
 jobs:
   evaluate:
@@ -21,7 +20,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install -e ".[dev]"
+        run: pip install -e ".[dev,eval]"
 
       - name: Start Qdrant
         run: |

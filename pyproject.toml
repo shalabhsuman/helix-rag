@@ -11,47 +11,19 @@ version = "0.1.0"
 description = "End-to-end RAG pipeline for biomedical research papers"
 requires-python = ">=3.11"
 dependencies = [
-    # --- PDF Parsing ---
-    # PyMuPDF: fast, handles 2-column scientific PDFs without merging lines
+    # Phase 1: ingestion + chunking
     "pymupdf>=1.24.0",
-
-    # --- Chunking ---
-    # LangChain text splitters only — we use LangChain for splitting, not for LLM calls
     "langchain-text-splitters>=0.2.0",
 
-    # --- Embeddings ---
-    # OpenAI SDK for text-embedding-3-small
+    # Phase 2: embedding + vector store
     "openai>=1.30.0",
-
-    # --- Vector Store ---
-    # Qdrant client: production-grade vector DB, runs locally via Docker or on Qdrant Cloud
     "qdrant-client>=1.9.0",
 
-    # --- Retrieval ---
-    # Cross-encoder reranker: re-scores top-K chunks for higher precision
+    # Phase 3: retrieval
     "sentence-transformers>=3.0.0",
-    # BM25 for the keyword side of hybrid search
     "rank-bm25>=0.2.2",
 
-    # --- Generation ---
-    # OpenAI GPT-4o for answer generation
-    # (already included via openai above)
-
-    # --- Agent ---
-    # OpenAI Agents SDK
-    "openai-agents>=0.0.7",
-
-    # --- Guardrails ---
-    "guardrails-ai>=0.5.0",
-
-    # --- Evaluation ---
-    "ragas>=0.1.0",
-    "deepeval>=1.0.0",
-
-    # --- UI ---
-    "gradio>=4.0.0",
-
-    # --- Utilities ---
+    # Utilities (used across all phases)
     "python-dotenv>=1.0.0",
     "pydantic>=2.0.0",
     "tqdm>=4.66.0",
@@ -65,6 +37,27 @@ dev = [
     "pytest-cov>=5.0.0",
     "ruff>=0.4.0",
     "mypy>=1.10.0",
+]
+
+# Phase 5: evaluation — installed when evals are built
+eval = [
+    "ragas>=0.1.0",
+    "deepeval>=1.0.0",
+]
+
+# Phase 6: agent — installed when agent is built
+agent = [
+    "openai-agents>=0.0.7",
+]
+
+# Phase 4+: guardrails — installed when guardrails are built
+guardrails = [
+    "guardrails-ai>=0.5.0",
+]
+
+# Phase 7: UI — installed when UI is built
+ui = [
+    "gradio>=4.0.0",
 ]
 
 [tool.ruff]

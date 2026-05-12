@@ -1,7 +1,6 @@
 from pathlib import Path
 
 import fitz
-import pytest
 
 from src.ingestion.parser import _clean_text, parse_pdf
 from src.models import ParsedDocument
