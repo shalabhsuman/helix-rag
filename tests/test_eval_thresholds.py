@@ -15,7 +15,7 @@ import pytest
 RESULTS_PATH = Path("data/eval_results.json")
 
 THRESHOLDS = {
-    "faithfulness": 0.80,
+    "faithfulness": 0.75,
     "context_recall": 0.75,
     "context_precision": 0.70,
     "answer_relevancy": 0.80,

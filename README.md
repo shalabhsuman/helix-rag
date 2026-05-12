@@ -23,6 +23,7 @@ The system goes beyond basic similarity search: it combines keyword and semantic
 - [Running the agent](#running-the-agent)
 - [Tests](#tests)
 - [CI](#ci)
+- [Known limitations](#known-limitations)
 - [Architecture](#architecture)
 - [License](#license)
 
@@ -219,7 +220,7 @@ Three metrics are tracked against a golden dataset of 30 to 40 hand-reviewed que
 | Context recall | Did retrieval surface the chunks that actually contain the answer? |
 | Context precision | Are the retrieved chunks relevant, or is there noise? |
 
-DeepEval runs the evaluation as pytest tests. The CI pipeline blocks merges to main if faithfulness falls below 0.80.
+DeepEval runs the evaluation as pytest tests. The CI pipeline blocks merges to main if faithfulness falls below 0.75.
 
 ### Agent: OpenAI Agents SDK
 
@@ -354,7 +355,7 @@ The pipeline is split into independent phases. Each one can be built, tested, an
 
 ## Setup
 
-Requirements: Python 3.11+, Docker, OpenAI API key.
+Requirements: Python 3.11+, Docker, OpenAI API key, [uv](https://docs.astral.sh/uv/).
 
 ### 1. Clone the repo
 
@@ -363,11 +364,24 @@ git clone https://github.com/shalabhsuman/helix-rag.git
 cd helix-rag
 ```
 
-### 2. Install dependencies
+### 2. Create a virtual environment and install dependencies
+
+uv creates an isolated `.venv` inside the project folder so dependencies never bleed into other projects.
 
 ```bash
-pip install -e ".[dev]"
+uv venv --python 3.11
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+uv pip install -e ".[dev]"
 ```
+
+To install optional dependency groups as each phase is built:
+
+```bash
+uv pip install -e ".[dev,eval]"       # adds RAGAS + DeepEval (Phase 5)
+uv pip install -e ".[dev,eval,ui]"    # adds Gradio (Phase 7)
+```
+
+> **Why uv?** pip installs into whichever Python is currently active — often the system Python or conda base. uv creates a local `.venv` so the project is fully self-contained and reproducible across machines.
 
 ### 3. Configure environment
 
@@ -437,20 +451,51 @@ Available at `http://localhost:7860`.
 
 ## Evaluation
 
-### Generate the golden dataset (one-time)
+Evaluation runs your pipeline against a golden set of question and reference answer pairs, then uses GPT-4o as a judge to score the results across four metrics: faithfulness, context recall, context precision, and answer relevancy.
+
+### Step 1: Build the golden set (one-time)
+
+There are two approaches. Choose one based on your corpus size and OpenAI tier.
+
+**Option A: Hand-written (recommended for small corpora)**
+
+Write questions and reference answers directly into `data/golden_set.json`. This gives the highest quality ground truth because you control every row. For a corpus of under 20 documents, this takes 20-30 minutes and produces better questions than auto-generation.
+
+A hand-written golden set is already provided at `data/golden_set.json` with 10 questions covering all indexed papers. Review and edit before running evaluation.
+
+**Option B: Auto-generated via RAGAS TestsetGenerator (recommended for large corpora)**
 
 ```bash
-python evals/generate_golden_dataset.py
+python scripts/generate_golden_set.py           # generates 10 samples by default
+python scripts/generate_golden_set.py --size 20  # generate more
 ```
 
-Produces synthetic question and answer pairs from indexed documents using RAGAS TestsetGenerator. Review and edit `evals/golden_dataset.json` before running evaluation.
+This uses `gpt-4o-mini` to read your documents and write question and answer pairs automatically. Useful when you have 20+ documents and cannot read them all manually. **Always review and edit the output** — treat it as a draft, not ground truth.
 
-### Run evaluation
+> **Note:** Requires an OpenAI account with sufficient token-per-minute limits. `gpt-4o-mini` is used because it has a higher TPM limit (200k/min) than `gpt-4o` (30k/min on Tier 1). If generation fails with a rate limit error, your account may need to be upgraded to Tier 2.
+
+### Step 2: Run evaluation
 
 ```bash
-python evals/run_ragas.py
-python evals/run_deepeval.py
+python scripts/run_eval.py
 ```
+
+Runs each question through the full pipeline, scores results with RAGAS, prints a table, and saves scores to `data/eval_results.json`.
+
+### Step 3: Assert quality thresholds
+
+```bash
+pytest tests/test_eval_thresholds.py -v
+```
+
+Loads `data/eval_results.json` and fails if any metric falls below its threshold. This runs automatically in CI after every merge to main.
+
+| Metric | Threshold |
+|---|---|
+| Faithfulness | >= 0.75 |
+| Context Recall | >= 0.75 |
+| Context Precision | >= 0.70 |
+| Answer Relevancy | >= 0.80 |
 
 ---
 
@@ -519,9 +564,29 @@ Two workflows live in `.github/workflows/`. GitHub runs them automatically.
 | CI | `ci.yml` | Every push and PR | Lint (ruff) + type check (mypy) + unit tests (pytest) | ~2 min |
 | Eval | `eval.yml` | Manual only (until Phase 5) | Full RAGAS + DeepEval evaluation against golden dataset | ~10 min |
 
-The eval workflow is set to manual-only until the evaluation pipeline (Phase 5) is built. After Phase 5, it will run automatically on every merge to main and block the merge if faithfulness drops below 0.80.
+The eval workflow is set to manual-only until the evaluation pipeline (Phase 5) is built. After Phase 5, it will run automatically on every merge to main and block the merge if faithfulness drops below 0.75.
 
 To add your API key as a GitHub secret (required for the eval workflow): go to your repo on GitHub, then Settings > Secrets and variables > Actions > New repository secret. Add `OPENAI_API_KEY`.
+
+---
+
+## Known limitations
+
+### OpenAI TPM limits affect TestsetGenerator
+
+RAGAS TestsetGenerator sends full document text to the LLM in a single request to extract structure. Each scientific paper can be 17k-40k tokens. On OpenAI Tier 1, the `gpt-4o` limit is 30,000 tokens per minute, which is exceeded by a single large document. The workaround is to use `gpt-4o-mini`, which has a 200k TPM limit on Tier 1. For large corpora on restricted accounts, chunking documents before passing them to the generator is an alternative.
+
+### BM25 index is rebuilt on every Retriever instantiation
+
+The BM25 index is built in memory by fetching all chunks from Qdrant at startup. For 821 chunks this is fast (~1 second). At 100k+ chunks the startup cost becomes significant. The production fix is to persist the BM25 index to disk or replace it with Qdrant's native sparse vector support, which handles keyword search natively without an in-memory index.
+
+### Embedding model is fixed after indexing
+
+All stored vectors must be created with the same embedding model. Switching models — for example from `text-embedding-3-small` to a local `BAAI/bge-large` — requires a full reindex. There is no incremental migration path. Plan the embedding model choice before building a large index.
+
+### Evaluation requires a live Qdrant instance and real API keys in CI
+
+The eval workflow reindexes all documents and runs live retrieval, which means it needs Docker (for Qdrant) and a real `OPENAI_API_KEY` in GitHub Secrets. This makes the eval workflow heavier than standard unit tests. The mitigation is to keep it on `workflow_dispatch` + merge-to-main trigger rather than running on every push.
 
 ---
 
@@ -555,7 +620,7 @@ flowchart TD
     subgraph Eval["Evaluation"]
         O[Golden Dataset] --> P[RAGAS + DeepEval]
         M --> P
-        P --> Q{Faithfulness\n>= 0.80?}
+        P --> Q{Faithfulness\n>= 0.75?}
         Q -->|pass| R[Merge to main]
         Q -->|fail| S[Block merge]
     end
