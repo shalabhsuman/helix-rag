@@ -58,7 +58,7 @@ class Retriever:
             offset = next_offset
 
         logger.info(f"Fetched {len(all_points)} chunks from Qdrant for BM25 index")
-        return [{"id": p.id, **p.payload} for p in all_points]
+        return [{"id": p.id, **(p.payload or {})} for p in all_points]
 
     def _build_bm25_index(self, chunks: list[dict]) -> BM25Okapi:
         tokenized = [chunk["child_text"].lower().split() for chunk in chunks]

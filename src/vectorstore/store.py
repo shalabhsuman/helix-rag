@@ -79,7 +79,7 @@ def search(query_vector: list[float], top_k: int = 20) -> list[dict[str, Any]]:
         limit=top_k,
         with_payload=True,
     )
-    return [{"score": r.score, **r.payload} for r in response.points]
+    return [{"score": r.score, **(r.payload or {})} for r in response.points]
 
 
 def delete_by_doc_id(doc_id: str) -> None:
