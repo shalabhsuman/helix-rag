@@ -147,6 +147,22 @@ Gradio provides a chat interface with source citation rendering. It runs as a st
 
 ---
 
+## Build phases
+
+The pipeline is built in phases. Each phase is independently testable.
+
+| Phase | What it builds | Status |
+|---|---|---|
+| 1 | PDF parsing and parent-child chunking | Done |
+| 2 | Embedding and Qdrant vector storage | Done |
+| 3 | Hybrid search and cross-encoder reranking | In progress |
+| 4 | GPT-4o generation with grounding constraint | Pending |
+| 5 | RAGAS and DeepEval evaluation pipeline | Pending |
+| 6 | OpenAI Agents SDK wrapper | Pending |
+| 7 | Gradio chat UI | Pending |
+
+---
+
 ## Setup
 
 Requirements: Python 3.11+, Docker, OpenAI API key.
