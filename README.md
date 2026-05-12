@@ -572,6 +572,10 @@ To add your API key as a GitHub secret (required for the eval workflow): go to y
 
 ## Known limitations
 
+### Faithfulness scores below 0.80 on well-known domains
+
+GPT-4o has strong prior knowledge of published scientific literature. Even with an explicit grounding instruction ("answer only from the context below"), it occasionally supplements answers with facts from its training data rather than strictly the retrieved passages. On this corpus, faithfulness scored 0.77 in evaluation. The threshold is set at 0.75 to reflect this realistic behavior. To push faithfulness higher, tighten the system prompt wording or switch to a model with weaker domain priors. Adding output guardrails in Phase 6 will provide an additional enforcement layer.
+
 ### OpenAI TPM limits affect TestsetGenerator
 
 RAGAS TestsetGenerator sends full document text to the LLM in a single request to extract structure. Each scientific paper can be 17k-40k tokens. On OpenAI Tier 1, the `gpt-4o` limit is 30,000 tokens per minute, which is exceeded by a single large document. The workaround is to use `gpt-4o-mini`, which has a 200k TPM limit on Tier 1. For large corpora on restricted accounts, chunking documents before passing them to the generator is an alternative.
