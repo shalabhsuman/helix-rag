@@ -162,6 +162,59 @@ To open the Qdrant dashboard, Qdrant must be running in Docker first (`docker ps
 
 ---
 
+## What indexing actually means
+
+The word "indexing" gets used in two ways in this project. They are related but different.
+
+---
+
+**Meaning 1: the ingestion pipeline (our code)**
+
+When you run `python scripts/ingest.py --mode add`, that is what most people in this project call "indexing." It means: take the PDFs, parse them, split them into chunks, embed each chunk, and store the vectors in Qdrant. This is a one-time operation per document. The result is 821 stored vectors.
+
+---
+
+**Meaning 2: the internal data structure Qdrant builds (automatic)**
+
+Once vectors are stored, Qdrant needs a way to find similar ones quickly at query time. The naive approach would be: take the query vector and compare it against all 821 stored vectors one by one. For 821 vectors that is fine. For 10 million vectors it would take seconds per query.
+
+To make search fast at scale, Qdrant builds an internal index called **HNSW** (Hierarchical Navigable Small World). You do not build this manually. Qdrant builds it automatically as you insert vectors.
+
+**How HNSW works (simplified):**
+
+Think of it like a highway system. Instead of checking every city to find the nearest one, you:
+
+1. Start at a high level (like interstate highways) and find roughly the right region
+2. Drop down to a mid level (state roads) and narrow further
+3. Drop to the lowest level (local streets) and find the exact nearest point
+
+```
+Layer 2 (sparse):   A -------- F -------- K
+                    |                     |
+Layer 1 (medium):   A --- C --- F --- H -- K
+                    |    |     |    |
+Layer 0 (dense):    A-B-C-D-E-F-G-H-I-J-K   <- all 821 chunks live here
+```
+
+A query starts at the top layer and navigates down. Instead of checking all 821 points, it checks maybe 30 to 50 on the way down and finds the nearest match. This is why vector search is fast even at scale.
+
+**The practical tradeoff:**
+
+| | Brute force (no index) | HNSW index |
+|---|---|---|
+| Build time | None | A few seconds for 821 vectors |
+| Query speed | Slow at scale | Fast even at millions |
+| Accuracy | Exact | Approximate (but very close) |
+| Memory | Low | Higher (graph structure stored in RAM) |
+
+For 821 vectors, you will not notice the difference. But the index is what makes Qdrant production-grade for larger collections.
+
+**How to see the index status in Qdrant:**
+
+Open http://localhost:6333/dashboard, click `helix_rag`, and look at the **Status** field. When it says `green`, the index is built and ready. When vectors are being inserted, it briefly shows `yellow`.
+
+---
+
 ## What a vector database actually looks like
 
 A vector database is not a spreadsheet and not a relational table. Each stored item is a JSON object with two parts: a vector and a payload.
