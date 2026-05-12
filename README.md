@@ -6,6 +6,28 @@ The system goes beyond basic similarity search: it combines keyword and semantic
 
 ---
 
+## Table of contents
+
+- [Features](#features)
+- [How it works](#how-it-works)
+- [Project structure](#project-structure)
+- [Design decisions](#design-decisions)
+- [Monitoring dashboards](#monitoring-dashboards)
+- [What indexing actually means](#what-indexing-actually-means)
+- [What a vector database actually looks like](#what-a-vector-database-actually-looks-like)
+- [Build phases](#build-phases)
+- [Setup](#setup)
+- [Index management](#index-management)
+- [Querying](#querying)
+- [Evaluation](#evaluation)
+- [Running the agent](#running-the-agent)
+- [Tests](#tests)
+- [CI](#ci)
+- [Architecture](#architecture)
+- [License](#license)
+
+---
+
 ## Features
 
 - Hybrid search (BM25 + dense vector) so exact terminology is never missed
@@ -380,22 +402,61 @@ python src/agent/agent.py
 
 ## Tests
 
+All tests live in `tests/`. Every external call (OpenAI, Qdrant) is mocked, so tests run in under 30 seconds with no API cost.
+
 ```bash
 pytest tests/ -v
 ```
 
-All external calls (OpenAI, Qdrant) are mocked. Tests run in under 2 minutes with no API cost.
+### What each test file covers
+
+| File | Tests | What it verifies |
+|---|---|---|
+| `test_ingestion.py` | 5 | PDF parser cleans hyphenated line breaks, collapses whitespace, returns correct doc_id |
+| `test_chunking.py` | 7 | Parent-child splitting produces correct sizes, every child references a valid parent, all chunk IDs are unique |
+| `test_embedding.py` | 4 | Embedder returns one vector per text, correct dimensions, batches large inputs correctly |
+| `test_vectorstore.py` | 4 | Qdrant upsert is called with correct points, payload contains parent text, search and delete work |
+| `test_retrieval.py` | 7 | BM25 respects top_k, RRF boosts chunks appearing in both lists, RRF formula is mathematically correct, reranker sorts by score |
+
+### When tests run
+
+| Trigger | What runs | Cost |
+|---|---|---|
+| Every push to any branch | All 27 unit tests | Free (no API calls) |
+| Every pull request | All 27 unit tests | Free |
+| Merge to main | All 27 unit tests + full eval suite | Small API cost |
+| Manual trigger (eval workflow) | Full RAGAS + DeepEval against golden dataset | API cost |
+
+### The three types of checks in CI
+
+These are different things. Only pytest requires you to write code.
+
+| Tool | You write it? | What it does | How to run locally |
+|---|---|---|---|
+| `pytest` | Yes. You write test functions. | Runs your code and checks the results are correct | `pytest tests/ -v` |
+| `ruff` | No. Just configured in `pyproject.toml`. | Checks code style: unused imports, lines too long, formatting | `ruff check src/ tests/` |
+| `mypy` | No. Just configured in `pyproject.toml`. | Checks type hints: catches passing wrong types to functions | `mypy src/` |
+
+If any of the three fails, the CI run is marked as failed. To run all three locally before pushing:
+
+```bash
+ruff check src/ tests/ && mypy src/ && pytest tests/ -v
+```
 
 ---
 
 ## CI
 
-| Workflow | Trigger | What runs |
-|---|---|---|
-| `ci.yml` | Every push and PR | Lint (ruff), type check (mypy), unit tests |
-| `eval.yml` | Merge to main | Full RAGAS and DeepEval evaluation. Fails if faithfulness < 0.80 |
+Two workflows live in `.github/workflows/`. GitHub runs them automatically.
 
-Add `OPENAI_API_KEY` as a repository secret: Settings > Secrets and variables > Actions.
+| Workflow | File | Trigger | What runs | Time |
+|---|---|---|---|---|
+| CI | `ci.yml` | Every push and PR | Lint (ruff) + type check (mypy) + unit tests (pytest) | ~2 min |
+| Eval | `eval.yml` | Manual only (until Phase 5) | Full RAGAS + DeepEval evaluation against golden dataset | ~10 min |
+
+The eval workflow is set to manual-only until the evaluation pipeline (Phase 5) is built. After Phase 5, it will run automatically on every merge to main and block the merge if faithfulness drops below 0.80.
+
+To add your API key as a GitHub secret (required for the eval workflow): go to your repo on GitHub, then Settings > Secrets and variables > Actions > New repository secret. Add `OPENAI_API_KEY`.
 
 ---
 
