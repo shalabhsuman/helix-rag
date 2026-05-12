@@ -17,10 +17,12 @@ The system goes beyond basic similarity search: it combines keyword and semantic
 - [What a vector database actually looks like](#what-a-vector-database-actually-looks-like)
 - [Build phases](#build-phases)
 - [Setup](#setup)
+- [Scripts reference](#scripts-reference)
 - [Index management](#index-management)
 - [Querying](#querying)
 - [Evaluation](#evaluation)
 - [Running the agent](#running-the-agent)
+- [Conversation memory](#conversation-memory)
 - [Tests](#tests)
 - [CI](#ci)
 - [Known limitations](#known-limitations)
@@ -401,6 +403,21 @@ Data is persisted in `qdrant_storage/` and survives container restarts. Keep thi
 
 ---
 
+## Scripts reference
+
+There are four scripts. Each has a single responsibility.
+
+| Script | When to run | What it does |
+|---|---|---|
+| `scripts/ingest.py` | Once at setup, or when adding new papers | Parses PDFs, splits into chunks, embeds them, stores vectors in Qdrant. Builds and maintains the index. |
+| `scripts/query.py` | Any time you want an answer | Takes a question, runs the full pipeline (retrieve + rerank + generate), prints the answer and sources. |
+| `scripts/generate_golden_set.py` | Once before first evaluation | Creates the golden question and answer set that evaluation is measured against. Run once, review output, commit the file. |
+| `scripts/run_eval.py` | When you want to measure quality | Runs all golden questions through the pipeline, scores with RAGAS, saves results to `data/eval_results.json`. |
+
+`ingest.py` builds the database. `query.py` uses it. The other two are for measuring quality.
+
+---
+
 ## Index management
 
 ### Build the index
@@ -502,8 +519,45 @@ Loads `data/eval_results.json` and fails if any metric falls below its threshold
 ## Running the agent
 
 ```bash
-python src/agent/agent.py
+python scripts/run_agent.py
 ```
+
+Type a question and press Enter. Type `quit` to exit.
+
+---
+
+## Conversation memory
+
+The agent remembers what you said earlier **within a single session**. If you ask "what papers do you have?" and then ask "summarize the first one", it knows what "the first one" means.
+
+It does **not** remember anything between sessions. When you quit and restart, the conversation starts fresh.
+
+### How it works
+
+The OpenAI Agents SDK tracks the conversation as a list of message objects. After each turn, `result.to_input_list()` returns the full conversation history up to that point. The next call passes that list as `input` instead of a plain string.
+
+```
+Turn 1:  input = "what papers do you have?"           <- plain string
+         result = Runner.run_sync(agent, input)
+         history = result.to_input_list()              <- [user msg, assistant msg]
+
+Turn 2:  input = history + [{"role": "user", "content": "summarize the first one"}]
+         result = Runner.run_sync(agent, input)        <- agent sees full context
+         history = result.to_input_list()              <- grows by 2 messages each turn
+```
+
+The history list grows by two messages per turn (one user, one assistant). There is no summarization or compression — the full transcript is sent to the model each time.
+
+### What this means in practice
+
+| Capability | In-session | Across sessions |
+|---|---|---|
+| Follow-up questions ("what about the second paper?") | Yes | No |
+| Refers back to earlier answers | Yes | No |
+| Remembers which papers you asked about | Yes | No |
+| Persists after `quit` and restart | No | — |
+
+If you need persistent memory across sessions, the history list would need to be serialized to disk and reloaded on startup. That is not implemented in this project.
 
 ---
 
