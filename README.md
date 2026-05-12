@@ -147,6 +147,58 @@ Gradio provides a chat interface with source citation rendering. It runs as a st
 
 ---
 
+## Monitoring dashboards
+
+Every tool in this stack has a way to inspect what is happening. Bookmark these.
+
+| Tool | Local dashboard | Online dashboard | What to check |
+|---|---|---|---|
+| **Qdrant** | http://localhost:6333/dashboard | [Qdrant Cloud](https://cloud.qdrant.io) (if deployed) | Browse vectors, run test queries, check collection stats |
+| **OpenAI** | n/a | [platform.openai.com/usage](https://platform.openai.com/usage) | API token usage, cost per day, which models were called |
+| **GitHub Actions** | n/a | `github.com/shalabhsuman/helix-rag/actions` | CI run history, lint/test pass or fail, eval scores |
+| **Gradio UI** (Phase 7) | http://localhost:7860 | n/a | The chat interface itself |
+
+To open the Qdrant dashboard, Qdrant must be running in Docker first (`docker ps` to check). Then open http://localhost:6333/dashboard in your browser. Click the `helix_rag` collection, then click **Points** to browse all 821 stored chunks.
+
+---
+
+## What a vector database actually looks like
+
+A vector database is not a spreadsheet and not a relational table. Each stored item is a JSON object with two parts: a vector and a payload.
+
+The **vector** is a list of numbers (1536 numbers in this project) that encodes the meaning of the text mathematically. You cannot read it as a human. Qdrant uses it to find chunks that are semantically similar to a question.
+
+The **payload** is regular metadata attached to that vector. It works like columns in a normal database.
+
+Here is what one stored point actually looks like:
+
+```json
+{
+  "id": 1,
+  "vector": [0.041, 0.034, 0.064, 0.045, ...],
+  "payload": {
+    "doc_id": "bailey_2024_ecdna_origins_impact",
+    "source_file": "bailey_2024_ecdna_origins_impact.pdf",
+    "chunk_id": "bailey_2024_ecdna_origins_impact_child_1",
+    "parent_chunk_id": "bailey_2024_ecdna_origins_impact_parent_0",
+    "child_text": "17.1% of tumour samples contain ecDNA...",
+    "parent_text": "Origins and impact of extrachromosomal DNA. Chris Bailey..."
+  }
+}
+```
+
+If you think of it as a spreadsheet, it looks like this:
+
+| id | vector | doc_id | chunk_id | parent_chunk_id | child_text | parent_text |
+|---|---|---|---|---|---|---|
+| 0 | [0.070, 0.027, ...] | bailey_2024... | ..._child_0 | ..._parent_0 | "Origins and impact..." | "Origins and impact..." |
+| 1 | [0.041, 0.034, ...] | bailey_2024... | ..._child_1 | ..._parent_0 | "17.1% of tumour samples..." | "Origins and impact..." |
+| 2 | [0.019, 0.051, ...] | bailey_2024... | ..._child_2 | ..._parent_1 | "ecDNA amplification..." | "ecDNA is a driver..." |
+
+There are 821 rows in this project. One row per child chunk. Chunks from the same parent section share the same `parent_chunk_id`. When retrieval finds a child chunk, it uses the stored `parent_text` to send richer context to the LLM.
+
+---
+
 ## Build phases
 
 The pipeline is built in phases. Each phase is independently testable.
