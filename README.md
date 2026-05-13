@@ -4,6 +4,10 @@ helix-rag is a production-grade agentic RAG pipeline for research-intensive doma
 
 The system goes beyond basic similarity search: it combines keyword and semantic retrieval, applies a reranker before generation, enforces citation grounding through guardrails, and exposes the pipeline as a callable tool inside an agent. Every component is swappable through configuration.
 
+![helix-rag pipeline overview](docs/social_preview.png)
+
+### Architecture detail
+
 ```mermaid
 %%{init: {'theme': 'base', 'themeVariables': {'background': '#ffffff', 'lineColor': '#64748b', 'primaryTextColor': '#0f172a', 'fontSize': '14px'}}}%%
 flowchart TD
