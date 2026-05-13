@@ -11,13 +11,21 @@ Conversation history is maintained across turns within a session.
 import os
 from pathlib import Path
 
-from agents import Agent, function_tool
+from agents import Agent, function_tool, set_default_openai_client
 from loguru import logger
 
 from src.generation.generator import generate
 from src.retrieval.retriever import Retriever
 
 RAW_DIR = Path("data/raw")
+
+if os.getenv("LANGFUSE_SECRET_KEY"):
+    try:
+        from langfuse.openai import AsyncOpenAI as LangfuseAsyncOpenAI  # type: ignore[import]
+        set_default_openai_client(LangfuseAsyncOpenAI(api_key=os.environ["OPENAI_API_KEY"]))
+        logger.info("Langfuse observability enabled for agent.")
+    except Exception as e:
+        logger.warning(f"Langfuse setup failed ({type(e).__name__}): {e}")
 
 AGENT_INSTRUCTIONS = """You are a research assistant with access to a curated set of
 indexed scientific papers.
@@ -27,9 +35,13 @@ You have two tools:
   findings, methods, or content of the papers.
 - list_papers: use this when the user wants to know which papers are available.
 
-Always cite the source paper when you answer a scientific question.
-If the retrieved context does not contain enough information, say so clearly.
-Do not use outside knowledge — only what the papers contain."""
+MANDATORY RULES — follow these without exception:
+1. You MUST call search_papers before answering ANY scientific question. No exceptions.
+2. Never answer from your own training knowledge. Only use what search_papers returns.
+3. Always include the source citation from search_papers in your answer.
+4. If search_papers returns no useful context, say exactly:
+   "I could not find an answer in the indexed papers."
+5. Do not add any information beyond what search_papers provides."""
 
 _retriever: Retriever | None = None
 

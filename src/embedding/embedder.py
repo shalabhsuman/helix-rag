@@ -10,6 +10,12 @@ BATCH_SIZE = 100  # OpenAI recommends batches of up to 100 for embeddings
 
 
 def get_client() -> OpenAI:
+    if os.getenv("LANGFUSE_SECRET_KEY"):
+        try:
+            from langfuse.openai import OpenAI as LangfuseOpenAI  # type: ignore[import]
+            return LangfuseOpenAI(api_key=os.environ["OPENAI_API_KEY"])
+        except ImportError:
+            logger.warning("langfuse not installed. Run: uv pip install langfuse")
     return OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
 
