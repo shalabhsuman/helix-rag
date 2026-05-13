@@ -213,6 +213,9 @@ for label, bg, bd, tx in badges:
     text_c(draw, bdg_x + BDG_W//2, bdg_y + BDG_H//2, label, f_small, tx)
     bdg_x += BDG_W + BDG_GAP
 
+# Border around the entire card
+rr(draw, 2, 2, W-4, H-4, 14, None, "#cbd5e1", lw=3)
+
 img.save("docs/social_preview.png", "PNG")
 total_h = R2_Y + block_h2 + 26 + BDG_H
 print(f"Content bottom: {total_h}px  Canvas: {H}px  Remaining: {H-total_h}px")
