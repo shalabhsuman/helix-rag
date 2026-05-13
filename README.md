@@ -5,37 +5,51 @@ helix-rag is a production-grade agentic RAG pipeline for research-intensive doma
 The system goes beyond basic similarity search: it combines keyword and semantic retrieval, applies a reranker before generation, enforces citation grounding through guardrails, and exposes the pipeline as a callable tool inside an agent. Every component is swappable through configuration.
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': {'background': '#ffffff', 'lineColor': '#64748b', 'primaryTextColor': '#0f172a', 'fontSize': '14px'}}}%%
 flowchart TD
+    classDef indexNode fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:2px
+    classDef queryNode fill:#ede9fe,stroke:#7c3aed,color:#3b0764,stroke-width:2px
+    classDef agentNode fill:#dcfce7,stroke:#16a34a,color:#14532d,stroke-width:2px
+    classDef evalNode fill:#fef9c3,stroke:#ca8a04,color:#713f12,stroke-width:2px
+    classDef storeNode fill:#bfdbfe,stroke:#1d4ed8,color:#1e3a8a,stroke-width:2px
+    classDef decisionNode fill:#fed7aa,stroke:#ea580c,color:#431407,stroke-width:2px
+    classDef successNode fill:#bbf7d0,stroke:#15803d,color:#14532d,stroke-width:2px
+
     subgraph Ingest["Indexing Pipeline (build time)"]
-        A[PDF Files] --> B[PyMuPDF\nText Extraction]
-        B --> C[Recursive Splitter\nParent-Child Chunks]
-        C --> D[OpenAI Embeddings\ntext-embedding-3-small]
-        D --> E[(Qdrant\nVector Store)]
+        A[PDF Files]:::indexNode --> B[PyMuPDF\nText Extraction]:::indexNode
+        B --> C[Recursive Splitter\nParent-Child Chunks]:::indexNode
+        C --> D[OpenAI Embeddings\ntext-embedding-3-small]:::indexNode
+        D --> E[(Qdrant\nVector Store)]:::storeNode
     end
 
-    subgraph Query["Query Pipeline (request time)"]
-        F[User Question] --> G[Input Guardrails\ntopic filter + injection check]
-        G --> H[OpenAI Embeddings]
-        H --> I[Hybrid Search\nDense + BM25]
+    subgraph Query["Query Pipeline (per request)"]
+        F[User Question]:::queryNode --> G[Input Guardrails]:::queryNode
+        G --> H[OpenAI Embeddings]:::queryNode
+        H --> I[Hybrid Search\nDense + BM25]:::queryNode
         E --> I
-        I --> J[Cross-Encoder\nReranker]
-        J --> K[GPT-4o\ngrounded generation]
-        K --> L[Output Guardrails\ncitation check]
-        L --> M[Answer + Sources]
+        I --> J[Cross-Encoder Reranker]:::queryNode
+        J --> K[GPT-4o\nGrounded Generation]:::queryNode
+        K --> L[Output Guardrails]:::queryNode
+        L --> M[Answer + Sources]:::successNode
     end
 
     subgraph AgentLayer["Agent Layer"]
-        N[OpenAI Agent] -->|invokes tool| F
+        N[OpenAI Agent]:::agentNode -->|invokes tool| F
         M --> N
     end
 
     subgraph Eval["Evaluation"]
-        O[Golden Dataset] --> P[RAGAS + DeepEval]
+        O[Golden Dataset]:::evalNode --> P[RAGAS + DeepEval]:::evalNode
         M --> P
-        P --> Q{Faithfulness\n>= 0.75?}
-        Q -->|pass| R[Merge to main]
-        Q -->|fail| S[Block merge]
+        P --> Q{Faithfulness >= 0.75?}:::decisionNode
+        Q -->|pass| R[Merge to main]:::successNode
+        Q -->|fail| S[Block merge]:::evalNode
     end
+
+    style Ingest fill:#eff6ff,stroke:#2563eb,stroke-width:2px,color:#1e3a8a
+    style Query fill:#f5f3ff,stroke:#7c3aed,stroke-width:2px,color:#3b0764
+    style AgentLayer fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#14532d
+    style Eval fill:#fefce8,stroke:#ca8a04,stroke-width:2px,color:#713f12
 ```
 
 ---

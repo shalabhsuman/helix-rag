@@ -1,18 +1,29 @@
+%%{init: {'theme': 'base', 'themeVariables': {'background': '#ffffff', 'lineColor': '#64748b', 'primaryTextColor': '#0f172a', 'fontSize': '15px'}}}%%
 flowchart LR
+    classDef indexNode fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:2px
+    classDef queryNode fill:#ede9fe,stroke:#7c3aed,color:#3b0764,stroke-width:2px
+    classDef agentNode fill:#dcfce7,stroke:#16a34a,color:#14532d,stroke-width:2px
+    classDef storeNode fill:#bfdbfe,stroke:#1d4ed8,color:#1e3a8a,stroke-width:2px
+    classDef successNode fill:#bbf7d0,stroke:#15803d,color:#14532d,stroke-width:2px
+
     subgraph Index["Indexing (build time)"]
         direction TB
-        A[PDFs] --> B[PyMuPDF] --> C[Chunker\nparent-child] --> D[Embeddings] --> E[(Qdrant)]
+        A[PDFs]:::indexNode --> B[PyMuPDF]:::indexNode --> C[Chunker\nparent-child]:::indexNode --> D[Embeddings]:::indexNode --> E[(Qdrant)]:::storeNode
     end
 
     subgraph Query["Query Pipeline (per request)"]
         direction TB
-        F[Question] --> G[Input\nGuardrails] --> H[Hybrid Search\nDense + BM25]
+        F[Question]:::queryNode --> G[Input\nGuardrails]:::queryNode --> H[Hybrid Search\nDense + BM25]:::queryNode
         E --> H
-        H --> I[Reranker] --> J[GPT-4o] --> K[Output\nGuardrails] --> L[Answer\n+ Sources]
+        H --> I[Reranker]:::queryNode --> J[GPT-4o]:::queryNode --> K[Output\nGuardrails]:::queryNode --> L[Answer\n+ Sources]:::successNode
     end
 
     subgraph Agent["Agent Layer"]
         direction TB
-        N[OpenAI\nAgent] -->|calls tool| F
+        N[OpenAI\nAgent]:::agentNode -->|calls tool| F
         L --> N
     end
+
+    style Index fill:#eff6ff,stroke:#2563eb,stroke-width:2px
+    style Query fill:#f5f3ff,stroke:#7c3aed,stroke-width:2px
+    style Agent fill:#f0fdf4,stroke:#16a34a,stroke-width:2px
