@@ -20,6 +20,7 @@ env/
 # Data — PDFs and processed files are local only
 data/raw/*.pdf
 data/processed/
+data/eval_results.json
 
 # Qdrant local storage
 qdrant_storage/
