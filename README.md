@@ -399,6 +399,7 @@ pytest tests/ -v
 | `test_retrieval.py` | 7 | BM25 respects top_k, RRF boosts chunks appearing in both lists, RRF formula is mathematically correct, reranker sorts by score |
 | `test_generation.py` | 8 | Grounding constraint is applied, sources are deduplicated correctly, fallback returned when no chunks found, parent_text is used not child_text |
 | `test_agent.py` | 7 | search_papers returns cited answer, list_papers reads from correct directory, agent has correct tools |
+| `test_ui.py` | 2 | Gradio app builds without error, title is set correctly |
 
 ### When tests run
 

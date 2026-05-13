@@ -22,7 +22,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install -e ".[dev,agent]"
+        run: pip install -e ".[dev,agent,ui]"
 
       - name: Lint with ruff
         run: ruff check src/ tests/
