@@ -1,0 +1,31 @@
+flowchart TD
+    subgraph Ingest["Indexing Pipeline (build time)"]
+        A[PDF Files] --> B[PyMuPDF\nText Extraction]
+        B --> C[Recursive Splitter\nParent-Child Chunks]
+        C --> D[OpenAI Embeddings\ntext-embedding-3-small]
+        D --> E[(Qdrant\nVector Store)]
+    end
+
+    subgraph Query["Query Pipeline (request time)"]
+        F[User Question] --> G[Input Guardrails\ntopic filter + injection check]
+        G --> H[OpenAI Embeddings]
+        H --> I[Hybrid Search\nDense + BM25]
+        E --> I
+        I --> J[Cross-Encoder\nReranker]
+        J --> K[GPT-4o\ngrounded generation]
+        K --> L[Output Guardrails\ncitation check]
+        L --> M[Answer + Sources]
+    end
+
+    subgraph AgentLayer["Agent Layer"]
+        N[OpenAI Agent] -->|invokes tool| F
+        M --> N
+    end
+
+    subgraph Eval["Evaluation"]
+        O[Golden Dataset] --> P[RAGAS + DeepEval]
+        M --> P
+        P --> Q{Faithfulness\n>= 0.75?}
+        Q -->|pass| R[Merge to main]
+        Q -->|fail| S[Block merge]
+    end

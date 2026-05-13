@@ -1,0 +1,18 @@
+flowchart LR
+    subgraph Index["Indexing (build time)"]
+        direction TB
+        A[PDFs] --> B[PyMuPDF] --> C[Chunker\nparent-child] --> D[Embeddings] --> E[(Qdrant)]
+    end
+
+    subgraph Query["Query Pipeline (per request)"]
+        direction TB
+        F[Question] --> G[Input\nGuardrails] --> H[Hybrid Search\nDense + BM25]
+        E --> H
+        H --> I[Reranker] --> J[GPT-4o] --> K[Output\nGuardrails] --> L[Answer\n+ Sources]
+    end
+
+    subgraph Agent["Agent Layer"]
+        direction TB
+        N[OpenAI\nAgent] -->|calls tool| F
+        L --> N
+    end
