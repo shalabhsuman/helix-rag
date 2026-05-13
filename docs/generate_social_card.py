@@ -13,12 +13,12 @@ ARROW     = "#64748b"
 
 # Section block backgrounds + borders
 IDX_BLOCK = "#eff6ff"; IDX_BORDER = "#93c5fd"
-QRY_BLOCK = "#f5f3ff"; QRY_BORDER = "#c4b5fd"
+QRY_BLOCK = "#fffbeb"; QRY_BORDER = "#fcd34d"   # amber tint to match orange nodes
 AGT_BLOCK = "#f8fafc"; AGT_BORDER = "#475569"
 
 # Node styles: white fill, colored border, dark text
 N_BLUE_BD = "#2563eb"; N_BLUE_TX = "#1d4ed8"
-N_PUR_BD  = "#7c3aed"; N_PUR_TX  = "#5b21b6"
+N_ORG_BD  = "#d97706"; N_ORG_TX  = "#92400e"   # orange for LLM/guardrail nodes
 N_GRN_BD  = "#16a34a"; N_GRN_TX  = "#15803d"
 N_FILL    = "#ffffff"
 
@@ -78,7 +78,6 @@ GAP   = 24
 draw.text((PAD, 32), "helix-rag", font=f_title, fill=DARK)
 draw.text((PAD+4, 96), "Agentic search across any document collection. Every answer grounded and cited.",
           font=f_sub, fill=MID)
-draw.line([(PAD, 128), (W-PAD, 128)], fill=SEP, width=1)
 
 # ── Section block helper ───────────────────────────────────────────────────
 BLOCK_PAD = 14   # padding inside block around nodes
@@ -143,7 +142,7 @@ arr_v(draw, qdrant_cx, qdrant_bottom + 4, AGT_Y - 4)
 
 rr(draw, AGT_X, AGT_Y, AGT_W, AGT_H, 10, AGT_BLOCK, AGT_BORDER, lw=2)
 text_c(draw, AGT_X + AGT_W//2, AGT_Y + 16, "Agent Layer", f_agent, DARK)
-text_c(draw, AGT_X + AGT_W//2, AGT_Y + 36, "routes questions · returns answers", f_agtsub, DIM)
+text_c(draw, AGT_X + AGT_W//2, AGT_Y + 36, "routes questions · returns answers", f_agtsub, MID)
 
 # ── Row 2: Querying ───────────────────────────────────────────────────────
 r2_steps = [
@@ -157,12 +156,12 @@ r2_steps = [
 
 # mixed colors: green for endpoints, blue for retrieval, purple for LLM/guardrails
 r2_colors = [
-    (N_GRN_BD, N_GRN_TX),
-    (N_PUR_BD, N_PUR_TX),
-    (N_BLUE_BD, N_BLUE_TX),
-    (N_BLUE_BD, N_BLUE_TX),
-    (N_PUR_BD, N_PUR_TX),
-    (N_GRN_BD, N_GRN_TX),
+    (N_GRN_BD, N_GRN_TX),   # User Question — green (endpoint)
+    (N_ORG_BD, N_ORG_TX),   # Input Guardrails — orange (AI/LLM)
+    (N_BLUE_BD, N_BLUE_TX), # Hybrid Search — blue (retrieval)
+    (N_BLUE_BD, N_BLUE_TX), # Cross-Encoder — blue (retrieval)
+    (N_ORG_BD, N_ORG_TX),   # GPT-4o — orange (AI/LLM)
+    (N_GRN_BD, N_GRN_TX),   # Answer + Sources — green (endpoint)
 ]
 
 R2_Y = AGT_Y + AGT_H + 30
@@ -170,7 +169,7 @@ LABEL_H2 = 28; BLOCK_PAD2 = 14
 block_w = W - 2*(PAD - BLOCK_PAD)
 block_h2 = LABEL_H2 + BLOCK_PAD2 + BOX_H + BLOCK_PAD2
 rr(draw, BLOCK_X, R2_Y, block_w, block_h2, 12, QRY_BLOCK, QRY_BORDER, lw=2)
-draw.text((BLOCK_X + 14, R2_Y + 7), "QUERYING", font=f_sec, fill=N_PUR_TX)
+draw.text((BLOCK_X + 14, R2_Y + 7), "QUERYING", font=f_sec, fill=N_ORG_TX)
 
 n2 = len(r2_steps)
 total2 = n2*BOX_W + (n2-1)*GAP
@@ -194,14 +193,11 @@ for i, (lbl, _) in enumerate(r2_steps):
         arr_h(draw, x1, r2_nodes_y + BOX_H//2, x2)
 
 # ── Footer badges ─────────────────────────────────────────────────────────
-draw.line([(PAD, R2_Y + block_h2 + 18), (W-PAD, R2_Y + block_h2 + 18)],
-          fill=SEP, width=1)
-
 badges = [
-    ("Hybrid BM25 + Dense",    IDX_BLOCK, N_BLUE_BD, N_BLUE_TX),
-    ("Evaluation + Guardrails",AGT_BLOCK, AGT_BORDER, DARK),
-    ("Agentic RAG",            QRY_BLOCK, N_PUR_BD,  N_PUR_TX),
-    ("CI Quality Gate",        "#f0fdf4", N_GRN_BD,  N_GRN_TX),
+    ("Hybrid BM25 + Dense",    IDX_BLOCK,  N_BLUE_BD, N_BLUE_TX),
+    ("Evaluation + Guardrails",AGT_BLOCK,  AGT_BORDER, DARK),
+    ("Agentic RAG",            "#fffbeb",  N_ORG_BD,  N_ORG_TX),
+    ("CI Quality Gate",        "#f0fdf4",  N_GRN_BD,  N_GRN_TX),
 ]
 BDG_W = 214; BDG_H = 32; BDG_GAP = 16
 BDG_TOTAL = len(badges)*BDG_W + (len(badges)-1)*BDG_GAP
