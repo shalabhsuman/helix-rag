@@ -531,18 +531,78 @@ Gradio provides a chat interface with source citation rendering. It runs as a st
 
 ---
 
-## Monitoring dashboards
+## Observability and cost tracking
+
+### Dashboards
 
 Every tool in this stack has a way to inspect what is happening. Bookmark these.
 
 | Tool | Local dashboard | Online dashboard | What to check |
 |---|---|---|---|
 | **Qdrant** | http://localhost:6333/dashboard | [Qdrant Cloud](https://cloud.qdrant.io) (if deployed) | Browse vectors, run test queries, check collection stats |
-| **OpenAI** | n/a | [platform.openai.com/usage](https://platform.openai.com/usage) | API token usage, cost per day, which models were called |
+| **OpenAI traces** | n/a | [platform.openai.com/traces](https://platform.openai.com/traces) | Per-query agent traces, tool calls, token counts |
+| **OpenAI usage** | n/a | [platform.openai.com/usage](https://platform.openai.com/usage) | Total spend by model, daily/monthly graphs |
+| **Langfuse** | n/a | [cloud.langfuse.com](https://cloud.langfuse.com) | Cost per request, TTFT, TTLT, all models in one place |
 | **GitHub Actions** | n/a | `github.com/shalabhsuman/helix-rag/actions` | CI run history, lint/test pass or fail, eval scores |
-| **Gradio UI** (Phase 7) | http://localhost:7860 | n/a | The chat interface itself |
+| **Gradio UI** | http://localhost:7860 | n/a | The chat interface itself |
 
-To open the Qdrant dashboard, Qdrant must be running in Docker first (`docker ps` to check). Then open http://localhost:6333/dashboard in your browser. Click the `helix_rag` collection, then click **Points** to browse all 821 stored chunks.
+### Key metrics for agentic RAG systems
+
+When operating a RAG pipeline at production scale, these are the metrics that matter:
+
+| Metric | What it measures | Why it matters |
+|---|---|---|
+| **TTFT** (Time To First Token) | Seconds from question sent to first word appearing | Users feel this as "how long before anything happens" |
+| **TTLT** (Time To Last Token) | Total seconds until response is complete | End-to-end wall time |
+| **Input tokens** | Tokens sent to OpenAI per request | Grows as conversation history grows |
+| **Output tokens** | Tokens generated per request | Usually smaller; costs 4x more per token than input |
+| **Cost per query** | Dollar cost for one question | Sum of all model calls: embedding + agent Turn 1 + Turn 2 |
+| **Tool call rate** | % of questions that triggered a tool | Should be near 100% for science questions |
+| **Retrieval hit rate** | % of queries where chunks were found | Low rate means index is missing content |
+
+### What one query costs (approximate)
+
+Using the ecDNA example query (802 input + 213 output tokens on gpt-4o):
+
+| Call | Model | Tokens | Cost |
+|---|---|---|---|
+| Embed query | text-embedding-3-small | ~10 | ~$0.000000 |
+| Agent Turn 1 | gpt-4o | 802 in | $0.002005 |
+| Agent Turn 2 | gpt-4o | 213 out | $0.002130 |
+| **Total** | | | **~$0.004** |
+
+Less than half a cent per query. At 1,000 queries per day that is ~$4/day.
+
+### Langfuse setup
+
+Langfuse is an open-source LLM observability platform. It logs every OpenAI call (agent turns and embeddings) with per-request cost, latency, and token counts. It is self-hostable and has a free cloud tier.
+
+**Step 1 — Install:**
+```bash
+pip install ".[observability]"
+```
+
+**Step 2 — Add keys to `.env`:**
+```
+LANGFUSE_PUBLIC_KEY=pk-lf-...
+LANGFUSE_SECRET_KEY=sk-lf-...
+LANGFUSE_HOST=https://cloud.langfuse.com
+```
+
+Get keys at [cloud.langfuse.com](https://cloud.langfuse.com) under Settings > API Keys.
+
+When `LANGFUSE_SECRET_KEY` is set, both the agent and embedding clients automatically wrap through Langfuse. When it is not set, calls go directly to OpenAI. No restart or code changes needed to toggle it beyond the env var.
+
+### Agent traces on OpenAI platform
+
+Every `Runner.run_sync()` or `Runner.run_streamed()` call creates a named trace visible at `platform.openai.com/traces`. Each trace shows:
+
+- Which tool was called and what it returned
+- Token counts per turn
+- Wall time per turn
+- The full message history sent to the model
+
+Traces are named `helix-rag | <first 60 chars of question>` so you can find a specific query quickly.
 
 ---
 

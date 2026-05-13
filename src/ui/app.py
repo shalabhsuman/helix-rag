@@ -1,43 +1,71 @@
 """Gradio chat interface for helix-rag.
 
-Wraps the OpenAI agent in a browser-based chat UI.
+Wraps the OpenAI agent in a browser-based chat UI with streaming responses.
 Conversation history is maintained per session via gr.State.
 Run with: python src/ui/app.py
 """
 
 import os
+from collections.abc import AsyncGenerator
 
-import gradio as gr
-from agents import Runner
 from dotenv import load_dotenv
-from loguru import logger
 
-from src.agent.agent import build_agent
+load_dotenv()  # must run before agent import so LANGFUSE_SECRET_KEY is set
 
-load_dotenv()
+import gradio as gr  # noqa: E402
+from agents import RunConfig, Runner  # noqa: E402
+from loguru import logger  # noqa: E402
+
+from src.agent.agent import build_agent  # noqa: E402
 
 TITLE = "helix-rag"
 DESCRIPTION = "Agentic search across any document collection. Every answer grounded and cited."
 PLACEHOLDER = "Ask a question about your documents, or type 'what papers do you have?'"
 
 
-def respond(message: str, chat_history: list, agent_history: list) -> tuple:
+async def respond(
+    message: str, chat_history: list, agent_history: list
+) -> AsyncGenerator[tuple, None]:
     if not message.strip():
-        return "", chat_history, agent_history
+        yield "", chat_history, agent_history
+        return
 
-    input_data = agent_history + [{"role": "user", "content": message}] if agent_history else message
+    input_data = (
+        agent_history + [{"role": "user", "content": message}] if agent_history else message
+    )
+    trace_name = f"helix-rag | {message[:60]}"
+
+    # Show user message immediately with a searching placeholder
+    chat_history = chat_history + [
+        {"role": "user", "content": message},
+        {"role": "assistant", "content": "_Searching papers..._"},
+    ]
+    yield "", chat_history, agent_history
 
     try:
-        result = Runner.run_sync(build_agent(), input_data)
-        reply = result.final_output
-        new_agent_history = result.to_input_list()
+        partial_reply = ""
+        stream_result = Runner.run_streamed(
+            build_agent(),
+            input_data,
+            run_config=RunConfig(workflow_name=trace_name),
+        )
+        async for event in stream_result.stream_events():
+            if event.type == "raw_response_event":
+                data = event.data
+                if hasattr(data, "type") and data.type == "response.output_text.delta":
+                    partial_reply += data.delta
+                    chat_history[-1]["content"] = partial_reply
+                    yield "", chat_history, agent_history
+
+        new_agent_history = stream_result.to_input_list()
+        if not partial_reply:
+            chat_history[-1]["content"] = stream_result.final_output
+        yield "", chat_history, new_agent_history
+
     except Exception as e:
         logger.error(f"Agent error: {e}")
-        reply = f"Something went wrong: {e}"
-        new_agent_history = agent_history
-
-    chat_history = chat_history + [[message, reply]]
-    return "", chat_history, new_agent_history
+        chat_history[-1]["content"] = f"Something went wrong: {e}"
+        yield "", chat_history, agent_history
 
 
 def build_app() -> gr.Blocks:
@@ -85,7 +113,7 @@ def build_app() -> gr.Blocks:
 if __name__ == "__main__":
     app = build_app()
     app.launch(
-        server_name="0.0.0.0",
+        server_name="127.0.0.1",
         server_port=int(os.getenv("UI_PORT", 7860)),
         theme=gr.themes.Soft(),
     )
