@@ -24,8 +24,8 @@ if os.getenv("LANGFUSE_SECRET_KEY"):
         from langfuse.openai import AsyncOpenAI as LangfuseAsyncOpenAI  # type: ignore[import]
         set_default_openai_client(LangfuseAsyncOpenAI(api_key=os.environ["OPENAI_API_KEY"]))
         logger.info("Langfuse observability enabled for agent.")
-    except Exception as e:
-        logger.warning(f"Langfuse setup failed ({type(e).__name__}): {e}")
+    except ImportError:
+        logger.warning("langfuse not installed. Run: uv pip install langfuse")
 
 AGENT_INSTRUCTIONS = """You are a research assistant with access to a curated set of
 indexed scientific papers.
